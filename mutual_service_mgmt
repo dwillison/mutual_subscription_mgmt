@@ -1,0 +1,118 @@
+const ID1 = "spreadsheet-ID";
+
+
+function update_srv_usr_data() {
+  // Ran every minute, this function is meant to:
+  // 1. Check if usr_srv_data needs an update
+  // 2. dd amounts paid to the balance for that service
+  // 3. subscribe or unsubscribe from services
+  // 4. record the date/time of the most recent form response
+
+  // opening sheets / tabs / ranges needed
+  var ss = SpreadsheetApp.openById(ID1);
+  var usr_srv_data = ss.getSheetByName("USR_SRV_DATA");
+  var form_responses = ss.getSheetByName("FORM_RESPONSES");
+  var usr_srv_data_last_update = ss.getRange("USR_SRV_DATA_LAST_UPDATE");
+
+  Logger.log("Running update script")
+  var last_update = form_responses.getLastRow();
+  var i = 1
+  while (i < last_update) {
+    usr_amt = 0;
+    if (usr_srv_data_last_update.getValue().valueOf() == form_responses.getRange(i.valueOf(),1).getValue().valueOf()) {
+      Logger.log("Last update found")
+
+      // Offsetting i to edit the next row
+      i += 1;
+
+      // Update latest change date
+      usr_srv_data_last_update.setValue(form_responses.getRange((i.valueOf()),1).getValue());
+
+      // setting form data values needed
+      usr_tag = form_responses.getRange(i.valueOf(),2).getValue().valueOf();
+      srv_tag = form_responses.getRange(i.valueOf(),3).getValue().valueOf();
+      usr_amt = form_responses.getRange(i.valueOf(),4).getValue().valueOf();
+      usr_sub = form_responses.getRange(i.valueOf(),5).getValue().valueOf();
+      // Logger.log(usr_tag);
+      // Logger.log(srv_tag);
+      // Logger.log(usr_amt);
+      // Logger.log(usr_sub);
+
+      // searching for usr_srv_data record that has a matching usr_tag and srv_tag
+      entry_to_update = usr_srv_data_search(usr_srv_data, usr_tag, srv_tag).valueOf();
+
+      // updating subscription status and timestamp
+      if(usr_sub == "Subscribe") {
+        usr_srv_data.getRange(String(entry_to_update.valueOf()),3,1,1).setValue([true]);
+        usr_srv_data.getRange(String(entry_to_update.valueOf()),4,1,1).setValue(usr_srv_data_last_update.getValue().valueOf());
+        Logger.log(usr_tag + " is now subscribed to " + srv_tag);
+      }
+
+      if(usr_sub == "Unsubscribe") {
+        usr_srv_data.getRange(String(entry_to_update.valueOf()),3,1,1).setValue([false]);
+        usr_srv_data.getRange(String(entry_to_update.valueOf()),4,1,1).setValue(usr_srv_data_last_update.getValue().valueOf());
+        Logger.log(usr_tag + " is now unsubscribed from " + srv_tag);
+      }
+
+      // updating amount due and timestamp
+      if(usr_amt > 0) {
+        usr_amt += usr_srv_data.getRange(entry_to_update,5).getValue().valueOf();
+        usr_srv_data.getRange(String(entry_to_update.valueOf()),5,1,1).setValue([usr_amt]);
+        usr_srv_data.getRange(String(entry_to_update.valueOf()),6,1,1).setValue(usr_srv_data_last_update.getValue().valueOf());
+        Logger.log(usr_tag + " has paid $" + usr_amt + " for " + srv_tag);
+      }
+
+      // Returning i offset for next loop
+      i -= 1;
+    }
+    i += 1;
+  }
+
+}
+
+
+function usr_srv_data_search (dat, usr, srv) {
+  // FORM
+  // Timestamp	Name	Applicable Service	Amount being paid	Subscription status	Email Address
+
+  // USR_SRV_DATA
+  // USR_TAGS	SRV_TAGS	SUBSCRIBED	SUB_SINCE	AMOUNT_OWED	LAST_PAYMENT	LAST_BILL
+  for (var i = 1; i < dat.getLastRow(); i++) {
+    // find where usr_srv_data service matches Form service
+    if (dat.getRange(i.valueOf(),1).getValue().valueOf() == usr && dat.getRange(i.valueOf(),2).getValue().valueOf() == srv) {
+      Logger.log("usr_srv_data_search returing: "+i);
+      return i;
+    }
+  }
+  return 0;
+}
+
+
+function populateQuestions() {
+  var form = FormApp.getActiveForm();
+  var googleSheetsQuestions = getSheetData('SUB_LOG_QUESTIONS');
+  var itemsArray = form.getItems();
+  itemsArray.forEach(function(item){
+    googleSheetsQuestions[0].forEach(function(header_value, header_index) {
+      if(header_value == item.getTitle())
+      {
+        var choiceArray = [];
+        for(j = 1; j < googleSheetsQuestions.length; j++)
+        {
+          (googleSheetsQuestions[j][header_index] != '') ? choiceArray.push(googleSheetsQuestions[j][header_index]) : null;
+        }
+        item.asMultipleChoiceItem().setChoiceValues(choiceArray);
+        // If using Dropdown Questions use line below instead of line above.
+        //item.asListItem().setChoiceValues(choiceArray);
+      }
+    });     
+  });
+}
+
+
+function getSheetData(sheet_name) {
+  var ss= SpreadsheetApp.openById(ID1);
+  var questionSheet = ss.getSheetByName(sheet_name);
+  var returnData = questionSheet.getDataRange().getValues();
+  return returnData;
+}
