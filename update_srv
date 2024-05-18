@@ -1,0 +1,38 @@
+function srv_metadata () {
+  // Ran every month, this function is meant to:
+  // 1. Update the SRV_METADATA with that month's list of subscribers per service
+  var ss = SpreadsheetApp.openById(ID1);
+  var usr_srv_data = ss.getSheetByName("USR_SRV_DATA");
+  var srv_metadata = ss.getSheetByName("SRV_METADATA");
+  var current_subs = ss.getRange("CURRENT_SUBS");
+  var no_of_records = ss.getRange("CURRENT_SUBS_RECORDS");
+
+  // loop through each current sub
+  // search usr_srv_data for it's match
+  // write sub cost to record
+  // copy record to current subs records
+  var usr, srv, usr_amt;
+  for (var i = 1; i < no_of_records.getValue().valueOf(); i++) {
+    // Logger.log(current_subs.getValues()[i][4] + " " + current_subs.getValues()[i][6]);
+
+    usr = current_subs.getValues()[i][2];
+    srv = current_subs.getValues()[i][1];
+    usr_amt = current_subs.getValues()[i][6] - current_subs.getValues()[i][4];
+
+    search_and_write_usr_srv_data(usr_srv_data,usr,srv,usr_amt)
+
+    srv_metadata.appendRow(current_subs.getValues()[i])
+  }
+}
+
+function search_and_write_usr_srv_data (dat, usr, srv, usr_amt) {
+  for (var i = 1; i < dat.getLastRow(); i++) {
+    // find where usr_srv_data service matches Form service
+    if (dat.getRange(i.valueOf(),1).getValue().valueOf() == usr && dat.getRange(i.valueOf(),2).getValue().valueOf() == srv) {
+      dat.getRange(String(i.valueOf()),5,1,1).setValue(usr_amt.valueOf());
+      return;
+    }
+  }
+  return;
+}
+
